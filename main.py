@@ -18,7 +18,7 @@ RANK_WEIGHTS = {
     "plat": 5,
     "diamond":  6,
     "champ":    7,
-    "champion": 7
+    "champion": 7,
 }
 
 RANK_DISPLAY = {
@@ -33,6 +33,20 @@ RANK_DISPLAY = {
     "diamond":  "Diamond",
     "champ":    "Champion",
     "champion": "Champion"
+}
+
+RANK_EMOJI = {
+    "unranked": "❓",
+    "copper":   "🧱",
+    "bronze":   "🥉",
+    "silver":   "🥈",
+    "iron": "🥈",
+    "gold":     "🎖",
+    "platinum": "💍",
+    "plat": "💍",
+    "diamond":  "💎",
+    "champ":    "👑",
+    "champion": "👑"
 }
 
 CONFIG_FILE = "blipbot_config.json"  # stores admin role IDs per guild
@@ -100,11 +114,15 @@ def best_split(players):
 
     return best_combo, best_diff
 
+def find_rank_from_val(val):
+    closest = min(RANK_WEIGHTS.items(), key=lambda x: abs(x[1] - val))
+    return RANK_DISPLAY[closest[0]]
+
 def format_team(label, players):
     total = sum(p[1] for p in players)
-    lines = [f"**{label}** — Rating: {total}"]
+    lines = [f"**{label}** — Rating: {total} - Average Rank: {find_rank_from_val(total//len(players))}"]
     for name, weight, rank in sorted(players, key=lambda p: -p[1]):
-        lines.append(f"  • {name} ({RANK_DISPLAY[rank]})")
+        lines.append(f"  • {name} ({RANK_EMOJI[rank]} {RANK_DISPLAY[rank]})")
     return "\n".join(lines)
 
 # ── Commands ─────────────────────────────────────────────────────────────────
@@ -147,7 +165,7 @@ async def signup(ctx, rank: str = None):
     verb = "updated their rank to" if already_in else "signed up as"
     await ctx.send(
         f"{'🔄' if already_in else '✅'} **{ctx.author.display_name}** {verb} "
-        f"**{RANK_DISPLAY[rank]}**. ({len(pool)} in pool)"
+        f"{RANK_EMOJI[rank]} **{RANK_DISPLAY[rank]}**. ({len(pool)} in pool)"
     )
 
 @bot.command()
@@ -292,6 +310,52 @@ async def clearpool_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ You need the **Manage Server** permission to use this command.")
 
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def dummyfill(ctx, count: int = 10):
+    """Fill the pool with fake players for testing. Usage: !dummyfill [count] (default 10)"""
+    if count < 2:
+        await ctx.send("❌ Need at least 2 dummy players.")
+        return
+    if count > 30:
+        await ctx.send("❌ Max 30 dummy players at a time.")
+        return
+
+    DUMMY_NAMES = [
+        "Ghost", "Sledge", "Ash", "Thermite", "Twitch", "Blitz", "Buck",
+        "Blackbeard", "Hibana", "Jackal", "Lion", "Finka", "Maverick",
+        "Nomad", "Gridlock", "Nokk", "Amaru", "Iana", "Ace", "Zero",
+        "Flores", "Osa", "Sens", "Grim", "Ram", "Deimos", "Fenrir"
+    ]
+
+    pool     = get_pool(ctx.guild.id)
+    ranks    = list(RANK_WEIGHTS.keys())
+    added    = 0
+    names    = random.sample(DUMMY_NAMES, min(count, len(DUMMY_NAMES)))
+
+    # pad with numbered extras if count > available names
+    if count > len(DUMMY_NAMES):
+        names += [f"Player{i}" for i in range(1, count - len(DUMMY_NAMES) + 1)]
+
+    for name in names[:count]:
+        fake_id  = f"dummy_{name.lower()}"
+        rank     = random.choice(ranks)
+        pool[fake_id] = {
+            "name":   f"[TEST] {name}",
+            "rank":   rank,
+            "weight": RANK_WEIGHTS[rank],
+        }
+        added += 1
+
+    await ctx.send(f"🤖 Added **{added}** dummy players to the pool. ({len(pool)} total)\nRun `!pool` to see them or `!maketeams` to test balancing.")
+
+@dummyfill.error
+async def dummyfill_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need the **Manage Server** permission to use this command.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("❌ Please provide a valid number. Example: `!dummyfill 15`")
+
 @bot.command(name="help", aliases=["commands"])
 async def help_command(ctx):
     """Show all available commands."""
@@ -320,6 +384,7 @@ async def help_command(ctx):
         name="🔧 Admin (Manage Server only)",
         value=(
             "`!consign @player [rank]` — Sign up another player on their behalf\n"
+            "`!dummyfill [count]` — Fill pool with fake players for testing (default 10)\n"
             "`!maketeams` — Randomly select up to 10 players and generate balanced teams\n"
             "`!clearpool` — Clear the entire signup pool\n"
             "`!setadmin @role` — Set the role that gets guaranteed selection if signed up"
