@@ -346,6 +346,7 @@ async def on_ready():
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 # Replace the string below with your bot token, or load it from an env variable:
-#   import os; bot.run(os.environ["DISCORD_TOKEN"])
+import os; 
+bot.run(os.environ["DISCORD_TOKEN"])
 
-bot.run("YOUR_BOT_TOKEN_HERE")
+# bot.run("YOUR_BOT_TOKEN_HERE")
