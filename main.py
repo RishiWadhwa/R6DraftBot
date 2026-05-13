@@ -16,23 +16,27 @@ RANK_WEIGHTS = {
     "gold":     4,
     "platinum": 5,
     "plat": 5,
-    "diamond":  6,    
+    "diamond":  6,
     "champ":    7,
     "champion": 7
 }
 
 RANK_DISPLAY = {
+    "unranked": "Unranked",
     "copper":   "Copper",
     "bronze":   "Bronze",
     "silver":   "Silver",
+    "iron": "Silver",
     "gold":     "Gold",
     "platinum": "Platinum",
+    "plat": "Platinum",
     "diamond":  "Diamond",
     "champ":    "Champion",
+    "champion": "Champion"
 }
 
-CONFIG_FILE = "draftbot_config.json"  # stores admin role IDs per guild
-MIN_PLAYERS = 2
+CONFIG_FILE = "blipbot_config.json"  # stores admin role IDs per guild
+MIN_PLAYERS = 4
 MATCH_SIZE  = 10  # max players selected per match
 
 # ── Persistence helpers ──────────────────────────────────────────────────────
@@ -172,6 +176,48 @@ async def pool(ctx):
     await ctx.send("\n".join(lines))
 
 @bot.command()
+@commands.has_permissions(manage_guild=True)
+async def consign(ctx, member: discord.Member, rank: str = None):
+    """Sign up another player by mention. Usage: !consign @player [rank]"""
+    if rank is None:
+        await ctx.send(
+            "❌ Please include a rank. Example: `!consign @player gold`\n"
+            f"Valid ranks: {', '.join(RANK_DISPLAY.values())}"
+        )
+        return
+
+    rank = rank.lower()
+    if rank not in RANK_WEIGHTS:
+        await ctx.send(
+            f"❌ **{rank}** isn't a valid rank.\n"
+            f"Valid ranks: {', '.join(RANK_DISPLAY.values())}"
+        )
+        return
+
+    pool = get_pool(ctx.guild.id)
+    uid  = str(member.id)
+    already_in = uid in pool
+    pool[uid] = {
+        "name":   member.display_name,
+        "rank":   rank,
+        "weight": RANK_WEIGHTS[rank],
+    }
+
+    verb = "updated to" if already_in else "signed up as"
+    await ctx.send(
+        f"{'🔄' if already_in else '✅'} **{member.display_name}** was {verb} "
+        f"**{RANK_DISPLAY[rank]}** by {ctx.author.display_name}. ({len(pool)} in pool)"
+    )
+
+@consign.error
+async def consign_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need the **Manage Server** permission to use this command.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("❌ Please mention a valid server member. Example: `!consign @player gold`")
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
 async def maketeams(ctx):
     """Randomly select up to 10 players (admins guaranteed) and balance teams."""
     pool      = get_pool(ctx.guild.id)
@@ -229,14 +275,22 @@ async def maketeams(ctx):
 
     await ctx.send("\n".join(msg_parts))
 
+@maketeams.error
+async def maketeams_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need the **Manage Server** permission to use this command.")
+
 @bot.command()
+@commands.has_permissions(manage_guild=True)
 async def clearpool(ctx):
     """Clear the entire signup pool. Requires manage_guild permission."""
-    if not ctx.author.guild_permissions.manage_guild:
-        await ctx.send("❌ You need the **Manage Server** permission to clear the pool.")
-        return
     signup_pools[str(ctx.guild.id)] = {}
     await ctx.send("🗑️ Signup pool cleared.")
+
+@clearpool.error
+async def clearpool_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need the **Manage Server** permission to use this command.")
 
 @bot.command(name="help", aliases=["commands"])
 async def help_command(ctx):
@@ -258,14 +312,15 @@ async def help_command(ctx):
     embed.add_field(
         name="🎮 Match",
         value=(
-            "`!pool` — See everyone currently signed up\n"
-            "`!maketeams` — Randomly select up to 10 players and generate balanced teams"
+            "`!pool` — See everyone currently signed up"
         ),
         inline=False
     )
     embed.add_field(
         name="🔧 Admin (Manage Server only)",
         value=(
+            "`!consign @player [rank]` — Sign up another player on their behalf\n"
+            "`!maketeams` — Randomly select up to 10 players and generate balanced teams\n"
             "`!clearpool` — Clear the entire signup pool\n"
             "`!setadmin @role` — Set the role that gets guaranteed selection if signed up"
         ),
@@ -291,7 +346,6 @@ async def on_ready():
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 # Replace the string below with your bot token, or load it from an env variable:
-import os; 
-bot.run(os.environ["DISCORD_TOKEN"])
+#   import os; bot.run(os.environ["DISCORD_TOKEN"])
 
-# bot.run("YOUR_BOT_TOKEN_HERE")
+bot.run("YOUR_BOT_TOKEN_HERE")
