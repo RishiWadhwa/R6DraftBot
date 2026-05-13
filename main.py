@@ -12,10 +12,10 @@ RANK_WEIGHTS = {
     "copper":   1,
     "bronze":   2,
     "silver":   3,
-    "iron": 3,
+    "iron":     3,
     "gold":     4,
     "platinum": 5,
-    "plat": 5,
+    "plat":     5,
     "diamond":  6,
     "champ":    7,
     "champion": 7,
@@ -26,13 +26,13 @@ RANK_DISPLAY = {
     "copper":   "Copper",
     "bronze":   "Bronze",
     "silver":   "Silver",
-    "iron": "Silver",
+    "iron":     "Silver",
     "gold":     "Gold",
     "platinum": "Platinum",
-    "plat": "Platinum",
+    "plat":     "Platinum",
     "diamond":  "Diamond",
     "champ":    "Champion",
-    "champion": "Champion"
+    "champion": "Champion",
 }
 
 RANK_EMOJI = {
@@ -40,13 +40,13 @@ RANK_EMOJI = {
     "copper":   "🧱",
     "bronze":   "🥉",
     "silver":   "🥈",
-    "iron": "🥈",
+    "iron":     "🥈",
     "gold":     "🎖",
     "platinum": "💍",
-    "plat": "💍",
+    "plat":     "💍",
     "diamond":  "💎",
     "champ":    "👑",
-    "champion": "👑"
+    "champion": "👑",
 }
 
 CONFIG_FILE = "blipbot_config.json"  # stores admin role IDs per guild
@@ -115,16 +115,20 @@ def best_split(players):
     return best_combo, best_diff
 
 def find_rank_from_val(val):
-    for key, value in RANK_WEIGHTS.items():
-        if value == val:
-            return RANK_DISPLAY[key]
-    return "N/A"
+    # Find the unique rank key with the closest weight (ignores aliases)
+    unique_ranks = {"unranked": 1, "copper": 1, "bronze": 2, "silver": 3,
+                    "gold": 4, "platinum": 5, "diamond": 6, "champ": 7}
+    closest = min(unique_ranks.items(), key=lambda x: abs(x[1] - val))
+    return RANK_DISPLAY[closest[0]]
 
 def format_team(label, players):
     total = sum(p[1] for p in players)
-    lines = [f"**{label}** — Rating: {total} - Average Rank: {find_rank_from_val(total//len(players))}"]
+    avg   = total / len(players)
+    lines = [f"**{label}** — Rating: {total} — Avg Rank: {find_rank_from_val(avg)}"]
     for name, weight, rank in sorted(players, key=lambda p: -p[1]):
-        lines.append(f"  • {name} ({RANK_EMOJI[rank]} {RANK_DISPLAY[rank]})")
+        emoji   = RANK_EMOJI.get(rank, "❓")
+        display = RANK_DISPLAY.get(rank, rank.capitalize())
+        lines.append(f"  • {name} ({emoji} {display})")
     return "\n".join(lines)
 
 # ── Commands ─────────────────────────────────────────────────────────────────
@@ -192,7 +196,9 @@ async def pool(ctx):
     sorted_players = sorted(players, key=lambda p: -p["weight"])
     lines = [f"📋 **Signup Pool** ({len(players)} players)\n"]
     for p in sorted_players:
-        lines.append(f"  • {p['name']} — {RANK_DISPLAY[p['rank']]}")
+        emoji   = RANK_EMOJI.get(p["rank"], "❓")
+        display = RANK_DISPLAY.get(p["rank"], p["rank"].capitalize())
+        lines.append(f"  • {p['name']} — {emoji} {display}")
     await ctx.send("\n".join(lines))
 
 @bot.command()
@@ -253,7 +259,11 @@ async def maketeams(ctx):
     regular_players = []
 
     for uid, data in pool.items():
-        member = ctx.guild.get_member(int(uid))
+        # dummy UIDs (e.g. "dummy_ghost") are never real members — treat as regular
+        try:
+            member = ctx.guild.get_member(int(uid))
+        except ValueError:
+            member = None
         if member and role_id and any(r.id == role_id for r in member.roles):
             admin_players.append((uid, data))
         else:
@@ -415,5 +425,3 @@ async def on_ready():
 # Replace the string below with your bot token, or load it from an env variable:
 import os; 
 bot.run(os.environ["DISCORD_TOKEN"])
-
-# bot.run("YOUR_BOT_TOKEN_HERE")
