@@ -115,8 +115,10 @@ def best_split(players):
     return best_combo, best_diff
 
 def find_rank_from_val(val):
-    closest = min(RANK_WEIGHTS.items(), key=lambda x: abs(x[1] - val))
-    return RANK_DISPLAY[closest[0]]
+    for key, value in RANK_WEIGHTS.items():
+        if value == val:
+            return RANK_DISPLAY[key]
+    return "N/A"
 
 def format_team(label, players):
     total = sum(p[1] for p in players)
