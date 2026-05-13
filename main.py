@@ -115,11 +115,10 @@ def best_split(players):
     return best_combo, best_diff
 
 def find_rank_from_val(val):
-    # Find the unique rank key with the closest weight (ignores aliases)
     unique_ranks = {"unranked": 1, "copper": 1, "bronze": 2, "silver": 3,
                     "gold": 4, "platinum": 5, "diamond": 6, "champ": 7}
     closest = min(unique_ranks.items(), key=lambda x: abs(x[1] - val))
-    return RANK_DISPLAY[closest[0]]
+    return f"{RANK_EMOJI[closest[0]]} {RANK_DISPLAY[closest[0]]}"
 
 def format_team(label, players):
     total = sum(p[1] for p in players)
