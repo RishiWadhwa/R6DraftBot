@@ -368,6 +368,37 @@ async def dummyfill_error(ctx, error):
     elif isinstance(error, commands.BadArgument):
         await ctx.send("❌ Please provide a valid number. Example: `!dummyfill 15`")
 
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def unsign(ctx, *, name: str = None):
+    """Forcefully remove a player from the pool by name. Usage: !unsign [name]"""
+    if name is None:
+        await ctx.send("❌ Please provide a name. Example: `!unsign blipr6`")
+        return
+ 
+    pool = get_pool(ctx.guild.id)
+    name_lower = name.lower()
+ 
+    # Search all entries for a matching name (case-insensitive)
+    match_uid = None
+    for uid, data in pool.items():
+        if data["name"].lower() == name_lower:
+            match_uid = uid
+            break
+ 
+    if match_uid is None:
+        await ctx.send(f"❌ **{name}** isn't in the pool.")
+        return
+ 
+    removed_name = pool[match_uid]["name"]
+    del pool[match_uid]
+    await ctx.send(f"🚫 **{removed_name}** was removed from the pool by {ctx.author.display_name}. ({len(pool)} remaining)")
+ 
+@unsign.error
+async def unsign_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need the **Manage Server** permission to use this command.")
+
 @bot.command(name="help", aliases=["commands"])
 async def help_command(ctx):
     """Show all available commands."""
@@ -395,7 +426,8 @@ async def help_command(ctx):
     embed.add_field(
         name="🔧 Admin (Manage Server only)",
         value=(
-            "`!consign @player [rank]` — Sign up another player on their behalf\n"
+            "`!consign [name] [rank]` — Sign up a player by name on their behalf\n"
+            "`!unsign [name]` — Forcefully remove a player from the pool\n"
             "`!dummyfill [count]` — Fill pool with fake players for testing (default 10)\n"
             "`!maketeams` — Randomly select up to 10 players and generate balanced teams\n"
             "`!clearpool` — Clear the entire signup pool\n"
