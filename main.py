@@ -16,9 +16,11 @@ RANK_WEIGHTS = {
     "gold":     4,
     "platinum": 5,
     "plat":     5,
-    "diamond":  6,
-    "champ":    7,
-    "champion": 7,
+    "em": 6,
+    "emerald": 6,
+    "diamond":  7,
+    "champ":    8,
+    "champion": 8,
 }
 
 RANK_DISPLAY = {
@@ -30,6 +32,8 @@ RANK_DISPLAY = {
     "gold":     "Gold",
     "platinum": "Platinum",
     "plat":     "Platinum",
+    "em": "Emerald",
+    "emerald": "Emerald",
     "diamond":  "Diamond",
     "champ":    "Champion",
     "champion": "Champion",
@@ -44,6 +48,8 @@ RANK_EMOJI = {
     "gold":     "🎖",
     "platinum": "💍",
     "plat":     "💍",
+    "em": "💚",
+    "emerald": "💚",
     "diamond":  "💎",
     "champ":    "👑",
     "champion": "👑",
