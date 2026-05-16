@@ -49,7 +49,7 @@ RANK_EMOJI = {
     "champion": "👑",
 }
 
-CONFIG_FILE = "blipbot_config.json"  # stores admin role IDs per guild
+CONFIG_FILE = "draftbot_config.json"  # stores admin role IDs per guild
 MIN_PLAYERS = 4
 MATCH_SIZE  = 10  # max players selected per match
 
@@ -115,10 +115,11 @@ def best_split(players):
     return best_combo, best_diff
 
 def find_rank_from_val(val):
+    # Find the unique rank key with the closest weight (ignores aliases)
     unique_ranks = {"unranked": 1, "copper": 1, "bronze": 2, "silver": 3,
                     "gold": 4, "platinum": 5, "diamond": 6, "champ": 7}
     closest = min(unique_ranks.items(), key=lambda x: abs(x[1] - val))
-    return f"{RANK_EMOJI[closest[0]]} {RANK_DISPLAY[closest[0]]}"
+    return RANK_DISPLAY[closest[0]]
 
 def format_team(label, players):
     total = sum(p[1] for p in players)
@@ -202,11 +203,11 @@ async def pool(ctx):
 
 @bot.command()
 @commands.has_permissions(manage_guild=True)
-async def consign(ctx, member: discord.Member, rank: str = None):
-    """Sign up another player by mention. Usage: !consign @player [rank]"""
-    if rank is None:
+async def consign(ctx, name: str = None, rank: str = None):
+    """Sign up a player by name. Usage: !consign [name] [rank]"""
+    if name is None or rank is None:
         await ctx.send(
-            "❌ Please include a rank. Example: `!consign @player gold`\n"
+            "❌ Please include a name and rank. Example: `!consign [name] gold`\n"
             f"Valid ranks: {', '.join(RANK_DISPLAY.values())}"
         )
         return
@@ -220,26 +221,26 @@ async def consign(ctx, member: discord.Member, rank: str = None):
         return
 
     pool = get_pool(ctx.guild.id)
-    uid  = str(member.id)
+    # Use the name as the key (lowercased) so the same name can't be added twice
+    uid  = f"consign_{name.lower()}"
     already_in = uid in pool
     pool[uid] = {
-        "name":   member.display_name,
+        "name":   name,
         "rank":   rank,
         "weight": RANK_WEIGHTS[rank],
     }
 
     verb = "updated to" if already_in else "signed up as"
+    emoji = RANK_EMOJI[rank]
     await ctx.send(
-        f"{'🔄' if already_in else '✅'} **{member.display_name}** was {verb} "
-        f"**{RANK_DISPLAY[rank]}** by {ctx.author.display_name}. ({len(pool)} in pool)"
+        f"{'🔄' if already_in else '✅'} **{name}** was {verb} "
+        f"{emoji} **{RANK_DISPLAY[rank]}** by {ctx.author.display_name}. ({len(pool)} in pool)"
     )
 
 @consign.error
 async def consign_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ You need the **Manage Server** permission to use this command.")
-    elif isinstance(error, commands.BadArgument):
-        await ctx.send("❌ Please mention a valid server member. Example: `!consign @player gold`")
 
 @bot.command()
 @commands.has_permissions(manage_guild=True)
@@ -371,7 +372,7 @@ async def dummyfill_error(ctx, error):
 async def help_command(ctx):
     """Show all available commands."""
     embed = discord.Embed(
-        title="😎 BlipBot Commands",
+        title="😎 DraftBot Commands",
         description="Mixing up fair teams for fair R6 customs!",
         color=discord.Color.blurple()
     )
@@ -416,7 +417,7 @@ async def setadmin_error(ctx, error):
 
 @bot.event
 async def on_ready():
-    print(f"✅ BlipBot is online as {bot.user}")
+    print(f"✅ DraftBot is online as {bot.user}")
     activity = discord.CustomActivity(name="😎 Mixing up fair teams for fair R6 customs")
     await bot.change_presence(status=discord.Status.idle, activity=activity)
 
@@ -424,3 +425,5 @@ async def on_ready():
 # Replace the string below with your bot token, or load it from an env variable:
 import os; 
 bot.run(os.environ["DISCORD_TOKEN"])
+
+# bot.run(os.environ["DISCORD_TOKEN"])
